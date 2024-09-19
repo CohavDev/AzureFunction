@@ -2,6 +2,7 @@ import azure.functions as func
 import re
 import json
 import logging
+from bs4 import BeautifulSoup
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -12,23 +13,29 @@ def http_trigger(req: func.HttpRequest) -> func.HttpResponse:
     try:
         req_body = req.get_json()
     except ValueError:
+        logging.info("Request body is not valid JSON")
         return func.HttpResponse(
             "Error: Request body is not valid JSON", status_code=400
         )
     else:
-        events_str_lst = req_body.get("events")
+        events_str_lst = req_body.get("events").get("body").get("value")
 
     if events_str_lst:
         # events_json = json.loads(events_str_lst)
         try:
+            logging.info("processing events...")
             response_object = process_events(events_str_lst)
         except Exception as e:
+            logging.info("Events Processing Failed")
+            logging.info(e)
             return func.HttpResponse("Events Processing Failed", status_code=500)
 
+        logging.info("returning response = SUCCESS")
         return func.HttpResponse(
             response_object, mimetype="application/json", status_code=200
         )
     else:
+        logging.info("returning responss = FAILED")
         return func.HttpResponse(
             "This HTTP triggered function executed without list of events. Pass events in the request body.",
             status_code=400,
@@ -39,8 +46,8 @@ def process_events(events: list) -> str:
     events_info_lst = []
     events_wrong_format_lst = []
     for event in events:
-        print("event")
-        print(event)
+        logging.info("event")
+        logging.info(event)
         event_body = event["body"]
         event_info = extract_info_from_body(event_body)
         if event_info == None:
@@ -52,6 +59,8 @@ def process_events(events: list) -> str:
 
 
 def extract_info_from_body(input: str):
+    soup = BeautifulSoup(input, "html.parser")
+    soupText = soup.get_text(separator="\n", strip=True)
     match_words = {
         "tech_name": "שם טכנאי",
         "mantis_number": "מנטיס",
@@ -60,11 +69,11 @@ def extract_info_from_body(input: str):
         "vhcls_count": "כמות רכבים",
         "car_item": "רכב מספר",
     }
-    tech_name = find_word_after(input, match_words["tech_name"])
-    mantis = find_word_after(input, match_words["mantis_number"])
-    client = find_word_after(input, match_words["client_name"])
-    service = find_word_after(input, match_words["service_type"])
-    cars_count = find_word_after(input, match_words["vhcls_count"])
+    tech_name = find_word_after(soupText, match_words["tech_name"])
+    mantis = find_word_after(soupText, match_words["mantis_number"])
+    client = find_word_after(soupText, match_words["client_name"])
+    service = find_word_after(soupText, match_words["service_type"])
+    cars_count = find_word_after(soupText, match_words["vhcls_count"])
     if any(x is None for x in (tech_name, mantis, client, service, cars_count)):
         # wrong format
         return None
@@ -77,7 +86,7 @@ def extract_info_from_body(input: str):
         }
         for i in range(int(cars_count)):
             car_id_name = match_words["car_item"] + " " + i + 1
-            car_license = find_word_after(input, car_id_name)
+            car_license = find_word_after(soupText, car_id_name)
             if car_license == None:
                 return None
             else:
