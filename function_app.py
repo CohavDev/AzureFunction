@@ -116,7 +116,7 @@ def extract_info_from_body(input: str):
                 return None
             else:
                 data_copy = data.copy()
-                data_copy[car_id_name] = car_license
+                data_copy["car_license"] = car_license
                 data_array.append(data_copy)
         return data_array
 
