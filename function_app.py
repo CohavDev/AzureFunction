@@ -1,14 +1,15 @@
 import azure.functions as func
-import re
-import json
-import logging
+import re, json, logging
 from bs4 import BeautifulSoup
 
 # -*- coding: utf-8 -*-
 
 # Configure logging
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
 
 @app.route(route="http_trigger")
 def http_trigger(req: func.HttpRequest) -> func.HttpResponse:
@@ -44,6 +45,7 @@ def http_trigger(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )
 
+
 # Loop through all events and building json object with relevant data
 def process_events(events: list) -> str:
     events_info_lst = []
@@ -59,7 +61,11 @@ def process_events(events: list) -> str:
     response_object = {"ok_list": events_info_lst, "bad_list": events_wrong_format_lst}
     return json.dumps(response_object)
 
-def proccess_one_event(event:str, events_wrong_format_lst:list,events_info_lst:list):
+
+def proccess_one_event(
+    event: str, events_wrong_format_lst: list, events_info_lst: list
+):
+    tech_name = fetch_tech_name(event["subject"])
     event_body = event["body"]
     event_info_array = extract_info_from_body(event_body)
     if event_info_array is None:
@@ -69,13 +75,24 @@ def proccess_one_event(event:str, events_wrong_format_lst:list,events_info_lst:l
         if event_info == None:
             events_wrong_format_lst.append(event["subject"])
         else:
+            if tech_name is not None:
+                event_info["tech_name"] = tech_name
             events_info_lst.append(event_info)
     return
+
+
+def fetch_tech_name(subject: str):
+    tech_names = ["מקס", "נתי", "אולג", "עדי", "גיא", "יוני", "עמי"]
+    substring = [item for item in tech_names if item in subject]
+    if len(substring) == 0:
+        return None
+    return substring[0]  # returns first match
+
 
 # Fetch event's data from it's body
 def extract_info_from_body(input: str):
     soup = BeautifulSoup(input, "html.parser")
-    soup.find('table')
+    soup.find("table")
     soupText = soup.get_text(separator="\n", strip=True)
     logging.info(soupText)
     match_words = {
@@ -119,6 +136,7 @@ def extract_info_from_body(input: str):
                 data_copy["car_license"] = car_license
                 data_array.append(data_copy)
         return data_array
+
 
 # Helper function for finding the next line string after a match (regex)
 def find_word_after(input: str, match_word: str):
