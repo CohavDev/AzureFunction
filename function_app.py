@@ -1,6 +1,7 @@
 import azure.functions as func
 import re, json, logging
 from bs4 import BeautifulSoup
+from dateutil import parser
 
 # -*- coding: utf-8 -*-
 
@@ -77,8 +78,15 @@ def proccess_one_event(
         else:
             if tech_name is not None:
                 event_info["tech_name"] = tech_name
+            event_info["event_date"] = fetch_date(event["start"])
             events_info_lst.append(event_info)
     return
+
+
+def fetch_date(startDate: str):
+    parsed_date = parser.parse(startDate)
+    formatted_date = parsed_date.strftime("%d/%m/%Y")
+    return formatted_date
 
 
 def fetch_tech_name(subject: str):
