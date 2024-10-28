@@ -117,6 +117,10 @@ def extract_info_from_body(input: str):
     client = find_word_after(soupText, match_words["client_name"])
     service = find_word_after(soupText, match_words["service_type"])
     cars_count = find_word_after(soupText, match_words["vhcls_count"])
+    # check if call has been canceled
+    cancel_str = "בוטל"
+    call_status = "לא בוצע" if cancel_str in soupText else ""
+
     logging.info("----------------match:")
     result = (tech_name, mantis, client, service, cars_count)
     logging.info(result)
@@ -142,6 +146,7 @@ def extract_info_from_body(input: str):
             else:
                 data_copy = data.copy()
                 data_copy["car_license"] = car_license
+                data_copy["call_status"] = call_status
                 data_array.append(data_copy)
         return data_array
 
