@@ -1,7 +1,9 @@
 import azure.functions as func
-import re, json, logging
+import json, logging
 from bs4 import BeautifulSoup
-from dateutil import parser
+
+from config import APPOINTMENT_WORDS, CANCEL_STR, TECH_NAME_PLACEHOLDER
+from utils import AppointmentsProcessor
 
 # -*- coding: utf-8 -*-
 
@@ -10,6 +12,8 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
+eventsProcessor = AppointmentsProcessor()
 
 
 @app.route(route="http_trigger")
@@ -66,7 +70,7 @@ def process_events(events: list) -> str:
 def proccess_one_event(
     event: str, events_wrong_format_lst: list, events_info_lst: list
 ):
-    tech_name = fetch_tech_name(event["subject"])
+    tech_name = eventsProcessor.fetch_tech_name(event["subject"])
     event_body = event["body"]
     event_info_array = extract_info_from_body(event_body)
     if event_info_array is None:
@@ -78,23 +82,9 @@ def proccess_one_event(
         else:
             if tech_name is not None:
                 event_info["tech_name"] = tech_name
-            event_info["event_date"] = fetch_date(event["start"])
+            event_info["event_date"] = eventsProcessor.fetch_date(event["start"])
             events_info_lst.append(event_info)
     return
-
-
-def fetch_date(startDate: str):
-    parsed_date = parser.parse(startDate)
-    formatted_date = parsed_date.strftime("%d/%m/%Y")
-    return formatted_date
-
-
-def fetch_tech_name(subject: str):
-    tech_names = ["מקס", "נתי", "אולג", "עדי", "גיא", "יוני", "עמי"]
-    substring = [item for item in tech_names if item in subject]
-    if len(substring) == 0:
-        return None
-    return substring[0]  # returns first match
 
 
 # Fetch event's data from it's body
@@ -103,23 +93,17 @@ def extract_info_from_body(input: str):
     soup.find("table")
     soupText = soup.get_text(separator="\n", strip=True)
     logging.info(soupText)
-    match_words = {
-        "tech_name": "שם טכנאי",
-        "mantis_number": "מנטיס",
-        "client_name": "שם לקוח",
-        "service_type": "סוג השירות",
-        "vhcls_count": "כמות רכבים",
-        "car_item": "מספר רכב",
-    }
-    # tech_name = find_word_after(soupText, match_words["tech_name"])
-    tech_name = "הכנס שם טכנאי"
-    mantis = find_word_after(soupText, match_words["mantis_number"])
-    client = find_word_after(soupText, match_words["client_name"])
-    service = find_word_after(soupText, match_words["service_type"])
-    cars_count = find_word_after(soupText, match_words["vhcls_count"])
+    match_words = APPOINTMENT_WORDS
+
+    tech_name = TECH_NAME_PLACEHOLDER
+    mantis = eventsProcessor.find_word_after(soupText, match_words["mantis_number"])
+    call_number = eventsProcessor.find_word_after(soupText, match_words["call_number"])
+    client = eventsProcessor.find_word_after(soupText, match_words["client_name"])
+    service = eventsProcessor.find_word_after(soupText, match_words["service_type"])
+    cars_count = eventsProcessor.find_word_after(soupText, match_words["vhcls_count"])
+
     # check if call has been canceled
-    cancel_str = "בוטל"
-    call_status = "לא בוצע" if cancel_str in soupText else ""
+    call_status = "לא בוצע" if CANCEL_STR in soupText else ""
 
     logging.info("----------------match:")
     result = (tech_name, mantis, client, service, cars_count)
@@ -135,11 +119,12 @@ def extract_info_from_body(input: str):
             "mantis": mantis,
             "client": client,
             "service": service,
+            "call_number": call_number,
         }
         for i in range(int(cars_count)):
             car_id_name = match_words["car_item"] + " " + str(i + 1)
             logging.info("---------" + car_id_name)
-            car_license = find_word_after(soupText, car_id_name)
+            car_license = eventsProcessor.find_word_after(soupText, car_id_name)
             logging.info(car_license)
             if car_license == None:
                 return None
@@ -149,10 +134,3 @@ def extract_info_from_body(input: str):
                 data_copy["call_status"] = call_status
                 data_array.append(data_copy)
         return data_array
-
-
-# Helper function for finding the next line string after a match (regex)
-def find_word_after(input: str, match_word: str):
-    pattern = rf"{re.escape(match_word)}\n(.*)"
-    match = re.search(pattern, input)
-    return str(match.group(1)) if match else None
