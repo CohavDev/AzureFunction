@@ -8,7 +8,6 @@ APPOINTMENT_WORDS = {
     "car_item": "מספר רכב",
     "call_number": "מספר קריאה",
 }
-EXPORTED_DATA_FIELDS = ["tech_name", "mantis", "client", "service", "call_number"]
 
 # Constants values
 TECH_NAME_PLACEHOLDER = "הכנס שם טכנאי"
