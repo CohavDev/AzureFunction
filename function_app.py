@@ -119,7 +119,7 @@ def extract_info_from_body(input: str):
             "mantis": mantis,
             "client": client,
             "service": service,
-            "call_number": call_number,
+            "call_number": call_number or "",
         }
         for i in range(int(cars_count)):
             car_id_name = match_words["car_item"] + " " + str(i + 1)
