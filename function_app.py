@@ -104,6 +104,8 @@ def extract_info_from_body(input: str):
 
     # check if call has been canceled
     call_status = "לא בוצע" if CANCEL_STR in soupText else ""
+    # check if call is a number
+    call_number = call_number if call_number.isdigit() else "-"
 
     logging.info("----------------match:")
     result = (tech_name, mantis, client, service, cars_count)
